@@ -12,10 +12,10 @@
 
 #pragma once
 
+#include <deque>
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
-#include <deque>
 #include <unordered_map>
 #include <vector>
 
@@ -144,6 +144,8 @@ class LRUKReplacer {
 
   std::unordered_map<frame_id_t, std::deque<size_t>> buf_{};
   std::unordered_map<frame_id_t, bool> st_{};
+
+  auto Judge(frame_id_t s, frame_id_t t) -> bool;
 };
 
 }  // namespace bustub
