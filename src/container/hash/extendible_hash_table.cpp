@@ -97,12 +97,11 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
       break;
     }
     if (global_depth_ == GetLocalDepthInternal(id)) {
-      for (int i = 0; i < num_buckets_; i++) {
+      for (int i = 0; i < (1 << global_depth_); i++) {
         auto tmp_pt = dir_[i];
         dir_.push_back(tmp_pt);
       }
       global_depth_++;
-      num_buckets_ *= 2;
     }
     id = IndexOf(key);
     // 分裂bucket，并重新链接directory entry
@@ -120,6 +119,7 @@ auto ExtendibleHashTable<K, V>::LowNNumber(int number, int n) -> int {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucket) -> void {
+  num_buckets_++;
   bucket->IncrementDepth();
   int depth = bucket->GetDepth();
   std::shared_ptr<Bucket> new_bucket(new Bucket(bucket_size_, depth));
@@ -133,7 +133,7 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucke
       pt++;
     }
   }
-  for (int i = 0; i < num_buckets_; i++) {
+  for (int i = 0; i < (1 << global_depth_); i++) {
     if (LowNNumber(i, depth - 1) == pre_mask && LowNNumber(i, depth) != pre_mask) {
       dir_[i] = new_bucket;
     }
