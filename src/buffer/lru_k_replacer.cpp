@@ -11,11 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/lru_k_replacer.h"
+#include "common/logger.h"
 
 namespace bustub {
 
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {
-  for (int i = 0; i <= static_cast<int>(replacer_size_); i++) {
+  for (int i = 0; i < static_cast<int>(replacer_size_); i++) {
     st_[i] = false;
   }
 }
