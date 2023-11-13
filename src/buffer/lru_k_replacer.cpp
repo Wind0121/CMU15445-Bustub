@@ -61,7 +61,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
   std::scoped_lock<std::mutex> lock(latch_);
-  if (static_cast<size_t>(frame_id) > replacer_size_) {
+  if (static_cast<size_t>(frame_id) >= replacer_size_) {
     throw std::exception();
   }
   current_timestamp_++;
@@ -74,7 +74,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   std::scoped_lock<std::mutex> lock(latch_);
-  if (static_cast<size_t>(frame_id) > replacer_size_) {
+  if (static_cast<size_t>(frame_id) >= replacer_size_) {
     throw std::exception();
   }
   if (buf_[frame_id].empty()) {
@@ -91,7 +91,7 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   std::scoped_lock<std::mutex> lock(latch_);
-  if (static_cast<size_t>(frame_id) > replacer_size_) {
+  if (static_cast<size_t>(frame_id) >= replacer_size_) {
     throw std::exception();
   }
   if (buf_[frame_id].empty()) {
