@@ -16,14 +16,17 @@
 namespace bustub {
 
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {
+  buf_ = new std::deque<size_t>[replacer_size_];
+  st_ = new bool[replacer_size_];
   for (int i = 0; i < static_cast<int>(replacer_size_); i++) {
     st_[i] = false;
+    buf_[i].clear();
   }
 }
 
 LRUKReplacer::~LRUKReplacer() {
-  st_.clear();
-  buf_.clear();
+  delete[] buf_;
+  delete[] st_;
 }
 
 auto LRUKReplacer::Judge(frame_id_t s, frame_id_t t) -> bool {
@@ -39,10 +42,10 @@ auto LRUKReplacer::Judge(frame_id_t s, frame_id_t t) -> bool {
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   std::scoped_lock<std::mutex> lock(latch_);
   frame_id_t select_id = -1;
-  for (auto &pt : buf_) {
-    if (st_[pt.first]) {
-      if (select_id == -1 || Judge(pt.first, select_id)) {
-        select_id = pt.first;
+  for (int i = 0; i < static_cast<int>(replacer_size_); i++) {
+    if (st_[i]) {
+      if (select_id == -1 || Judge(i, select_id)) {
+        select_id = i;
       }
     }
   }
@@ -62,9 +65,6 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
     throw std::exception();
   }
   current_timestamp_++;
-  if (buf_.count(frame_id) == 0) {
-    buf_.insert({frame_id, std::deque<size_t>{}});
-  }
   std::deque<size_t> &q = buf_[frame_id];
   if (q.size() == k_) {
     q.pop_front();

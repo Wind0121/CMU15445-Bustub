@@ -142,8 +142,8 @@ class LRUKReplacer {
   size_t k_;
   std::mutex latch_;
 
-  std::unordered_map<frame_id_t, std::deque<size_t>> buf_{};
-  std::unordered_map<frame_id_t, bool> st_{};
+  std::deque<size_t> *buf_;
+  bool *st_;
 
   auto Judge(frame_id_t s, frame_id_t t) -> bool;
 };
