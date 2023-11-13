@@ -160,6 +160,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** List of free frames that don't have any pages on them. */
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
+  /*以上这些变量都需要保护*/
   std::mutex latch_;
 
   /**
@@ -177,5 +178,6 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   }
 
   // TODO(student): You may add additional private members and helper functions
+  auto FindEmptyFrame(frame_id_t *frame_id) -> bool;
 };
 }  // namespace bustub
