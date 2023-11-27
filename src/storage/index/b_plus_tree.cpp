@@ -5,6 +5,7 @@
 #include "common/rid.h"
 #include "storage/index/b_plus_tree.h"
 #include "storage/page/header_page.h"
+#include "common/logger.h"
 
 namespace bustub {
 INDEX_TEMPLATE_ARGUMENTS
@@ -21,7 +22,9 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
  * Helper function to decide whether current b+tree is empty
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
+auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
+  return root_page_id_ == INVALID_PAGE_ID;
+}
 /*****************************************************************************
  * SEARCH
  *****************************************************************************/
@@ -32,7 +35,19 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
-  return false;
+  auto page = FindLeaf(key);
+  auto* node = reinterpret_cast<LeafPage *>(page->GetData());
+
+  ValueType v;
+  bool exist = node->Lookup(key,&v,comparator_);
+  buffer_pool_manager_->UnpinPage(page->GetPageId(),false);
+
+  if(!exist){
+    return false;
+  }
+
+  result->push_back(v);
+  return true;
 }
 
 /*****************************************************************************
@@ -47,8 +62,26 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
+  if(IsEmpty()){
+    StartNewTree(key,value);
+    return true;
+  }
   return false;
 }
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value){
+  auto page = buffer_pool_manager_->NewPage(&root_page_id_);
+  auto* node = reinterpret_cast<LeafPage *>(page->GetData());
+
+  node->Init(root_page_id_,INVALID_PAGE_ID,leaf_max_size_);
+
+  node->Insert(key,value,comparator_);
+
+  buffer_pool_manager_->UnpinPage(page->GetPageId(),true);
+}
+
+
 
 /*****************************************************************************
  * REMOVE
@@ -94,7 +127,30 @@ auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(); 
  * @return Page id of the root of this tree
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::GetRootPageId() -> page_id_t { return 0; }
+auto BPLUSTREE_TYPE::GetRootPageId() -> page_id_t {
+  return root_page_id_;
+}
+
+/*****************************************************************************
+ * HELPER FUNCTIONS
+ *****************************************************************************/
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::FindLeaf(const KeyType &key)->Page*{
+  auto page = buffer_pool_manager_->FetchPage(root_page_id_);
+  auto* node = reinterpret_cast<BPlusTreePage *>(page->GetData());
+
+  while(!node->IsLeafPage()){
+    auto* i_node = reinterpret_cast<InternalPage *>(node);
+    auto child_page_id = i_node->LookUp(key,comparator_);
+
+    buffer_pool_manager_->UnpinPage(page->GetPageId(),false);
+
+    page = buffer_pool_manager_->FetchPage(child_page_id);
+    node = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  }
+
+  return page;
+}
 
 /*****************************************************************************
  * UTILITIES AND DEBUG

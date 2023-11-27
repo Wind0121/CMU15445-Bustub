@@ -18,6 +18,7 @@
 #include "storage/index/index_iterator.h"
 #include "storage/page/b_plus_tree_internal_page.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
+#include "storage/page/page.h"
 
 namespace bustub {
 
@@ -75,6 +76,10 @@ class BPlusTree {
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
 
  private:
+  auto FindLeaf(const KeyType &key)-> Page*;
+
+  void StartNewTree(const KeyType &key,const ValueType &value);
+
   void UpdateRootPageId(int insert_record = 0);
 
   /* Debug Routines for FREE!! */
@@ -89,6 +94,7 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+
 };
 
 }  // namespace bustub

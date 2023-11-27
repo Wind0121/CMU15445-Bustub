@@ -59,6 +59,44 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
   return array_[index].first;
 }
 
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Lookup(const KeyType &key, ValueType *value, const KeyComparator &comparator) const
+    -> bool {
+  auto target = std::lower_bound(array_, array_ + GetSize(), key,
+                                 [&comparator](const auto &pair, auto k) { return comparator(pair.first, k) < 0; });
+
+  if(target == array_ + GetSize() || comparator(target->first,key) != 0){
+    return false;
+  }
+
+  *value = target->second;
+  return true;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key,const ValueType &value,const KeyComparator &comparator)
+    -> int{
+  auto target = std::lower_bound(array_,array_ + GetSize(),key,[&comparator](const auto &pair,auto k){
+    return comparator(pair.first,k) < 0;
+  });
+  int target_in_array = std::distance(array_,target);
+
+  if(target_in_array == GetSize()){
+    array_[target_in_array] = {key,value};
+    IncreaseSize(1);
+    return GetSize();
+  }
+
+  if(comparator(array_[target_in_array].first,key) == 0){
+    return GetSize();
+  }
+
+  std::move_backward(array_ + target_in_array,array_ + GetSize(),array_ + GetSize() + 1);
+  array_[target_in_array] = {key,value};
+  IncreaseSize(1);
+  return GetSize();
+}
+
 template class BPlusTreeLeafPage<GenericKey<4>, RID, GenericComparator<4>>;
 template class BPlusTreeLeafPage<GenericKey<8>, RID, GenericComparator<8>>;
 template class BPlusTreeLeafPage<GenericKey<16>, RID, GenericComparator<16>>;
