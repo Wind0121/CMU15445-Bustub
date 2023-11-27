@@ -57,6 +57,11 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, const ValueType &value) {
+  array_[index].second = value;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::LookUp(const KeyType &key, const KeyComparator &comparator)->ValueType{
   auto target = std::lower_bound(array_ + 1, array_ + GetSize(), key,
                                  [&comparator](const auto &pair, auto k) { return comparator(pair.first, k) < 0; });
@@ -68,6 +73,16 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::LookUp(const KeyType &key, const KeyCompara
   }
   return std::prev(target)->second;
 }
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::PopulateNewRoot(const ValueType &old_value, const KeyType &new_key,
+                                                     const ValueType &new_value){
+  SetKeyAt(1,new_key);
+  SetValueAt(0,old_value);
+  SetValueAt(1,new_value);
+  SetSize(2);
+}
+
 
 // valuetype for internalNode should be page id_t
 template class BPlusTreeInternalPage<GenericKey<4>, page_id_t, GenericComparator<4>>;

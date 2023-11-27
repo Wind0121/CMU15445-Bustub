@@ -80,6 +80,13 @@ class BPlusTree {
 
   void StartNewTree(const KeyType &key,const ValueType &value);
 
+  auto InsertIntoLeaf(const KeyType &key, const ValueType &value) -> bool;
+
+  template <typename N>
+  auto Split(N *node) -> N *;
+
+  void InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node);
+
   void UpdateRootPageId(int insert_record = 0);
 
   /* Debug Routines for FREE!! */

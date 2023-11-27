@@ -66,7 +66,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     StartNewTree(key,value);
     return true;
   }
-  return false;
+  return InsertIntoLeaf(key,value);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -81,7 +81,80 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value){
   buffer_pool_manager_->UnpinPage(page->GetPageId(),true);
 }
 
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value) -> bool{
+  auto page = FindLeaf(key);
+  auto* node = reinterpret_cast<LeafPage *>(page->GetData());
 
+  int oldsize = node->GetSize();
+  int newsize = node->Insert(key,value,comparator_);
+  // 重复键
+  if(oldsize == newsize){
+    buffer_pool_manager_->UnpinPage(page->GetPageId(),false);
+    return false;
+  }
+  // 没满就正常插入
+  if(newsize < node->GetMaxSize()){
+    buffer_pool_manager_->UnpinPage(page->GetPageId(),true);
+    return true;
+  }
+  // 满了就要进行分裂操作
+  auto sibling_leaf_node = Split(node);
+  sibling_leaf_node->SetNextPageId(node->GetNextPageId());
+  node->SetNextPageId(sibling_leaf_node->GetNextPageId());
+
+  KeyType new_key = sibling_leaf_node->KeyAt(0);
+  InsertIntoParent(node,new_key,sibling_leaf_node);
+
+  buffer_pool_manager_->UnpinPage(page->GetPageId(),true);
+  buffer_pool_manager_->UnpinPage(sibling_leaf_node->GetPageId(),true);
+  return true;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+template <typename N>
+auto BPLUSTREE_TYPE::Split(N *node) -> N *{
+  page_id_t page_id;
+  auto page = buffer_pool_manager_->NewPage(&page_id);
+
+  if (page == nullptr) {
+    throw Exception(ExceptionType::OUT_OF_MEMORY, "Cannot allocate new page");
+  }
+
+  N *new_node = reinterpret_cast<N *>(page->GetData());
+  new_node->SetPageType(node->GetPageType());
+
+  if(node->IsLeafPage()){
+    auto* leaf = reinterpret_cast<LeafPage *>(node);
+    auto* new_leaf = reinterpret_cast<LeafPage *>(new_node);
+
+    new_leaf->Init(page_id,leaf->GetParentPageId(),leaf_max_size_);
+    leaf->MoveHalfTo(new_leaf);
+  }else{
+
+  }
+
+  return new_node;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node){
+  if(old_node->IsRootPage()){
+    auto new_page = buffer_pool_manager_->NewPage(&root_page_id_);
+    auto* new_root = reinterpret_cast<InternalPage *>(new_page->GetData());
+    new_root->Init(root_page_id_,INVALID_PAGE_ID,internal_max_size_);
+
+    new_root->PopulateNewRoot(old_node->GetPageId(),key,new_node->GetPageId());
+
+    old_node->SetParentPageId(new_root->GetPageId());
+    new_node->SetParentPageId(new_root->GetPageId());
+
+    buffer_pool_manager_->UnpinPage(new_root->GetPageId(),true);
+
+    UpdateRootPageId(0);
+    return;
+  }
+}
 
 /*****************************************************************************
  * REMOVE
