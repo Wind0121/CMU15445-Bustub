@@ -131,7 +131,11 @@ auto BPLUSTREE_TYPE::Split(N *node) -> N *{
     new_leaf->Init(page_id,leaf->GetParentPageId(),leaf_max_size_);
     leaf->MoveHalfTo(new_leaf);
   }else{
+    auto* internal = reinterpret_cast<InternalPage *>(node);
+    auto* new_internal = reinterpret_cast<InternalPage *>(new_node);
 
+    new_internal->Init(page_id,internal->GetParentPageId(),internal_max_size_);
+    internal->MoveHalfTo(new_internal,buffer_pool_manager_);
   }
 
   return new_node;
@@ -154,6 +158,24 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
     UpdateRootPageId(0);
     return;
   }
+
+  auto parent_page = buffer_pool_manager_->FetchPage(old_node->GetParentPageId());
+  auto* parent_node = reinterpret_cast<InternalPage *>(parent_page->GetData());
+
+  if(parent_node->GetSize() < internal_max_size_){
+    parent_node->InsertNodeAfter(old_node->GetPageId(),key,new_node->GetPageId());
+    buffer_pool_manager_->UnpinPage(parent_node->GetPageId(),true);
+    return;
+  }
+
+  parent_node->InsertNodeAfter(old_node->GetPageId(),key,new_node->GetPageId());
+  auto* sibling_parent_node = Split(parent_node);
+
+  KeyType new_key = sibling_parent_node->KeyAt(0);
+  InsertIntoParent(parent_node,new_key,sibling_parent_node);
+
+  buffer_pool_manager_->UnpinPage(parent_node->GetPageId(),true);
+  buffer_pool_manager_->UnpinPage(sibling_parent_node->GetPageId(),true);
 }
 
 /*****************************************************************************
