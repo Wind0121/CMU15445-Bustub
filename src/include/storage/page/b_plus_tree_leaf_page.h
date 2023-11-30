@@ -51,9 +51,15 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   auto KeyAt(int index) const -> KeyType;
 
   auto Lookup(const KeyType &key, ValueType *value, const KeyComparator &comparator) const -> bool;
-  auto Insert(const KeyType &key,const ValueType &value,const KeyComparator &comparator) -> int;
+  auto Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> int;
   void MoveHalfTo(BPlusTreeLeafPage *recipient);
   void CopyNFrom(MappingType *items, int size);
+  auto RemoveAndDeleteRecord(const KeyType &key, const KeyComparator &keyComparator) -> int;
+  void MoveFirstToEndOf(BPlusTreeLeafPage *recipient);
+  void CopyLastFrom(const MappingType &item);
+  void MoveLastToFrontOf(BPlusTreeLeafPage *recipient);
+  void CopyFirstFrom(const MappingType &item);
+  void MoveAllTo(BPlusTreeLeafPage *recipient);
 
  private:
   page_id_t next_page_id_;

@@ -43,12 +43,20 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   auto ValueAt(int index) const -> ValueType;
   void SetValueAt(int index, const ValueType &value);
 
-  auto LookUp(const KeyType &key, const KeyComparator &comparator)->ValueType;
-  void PopulateNewRoot(const ValueType &old_value, const KeyType &new_key,const ValueType &new_value);
-  auto ValueIndex(const ValueType &value) const ->int;
-  auto InsertNodeAfter(const ValueType &old_value, const KeyType &new_key,const ValueType &new_value) -> int;
-  void MoveHalfTo(BPlusTreeInternalPage *recipient,BufferPoolManager *buffer_pool_manager);
+  auto LookUp(const KeyType &key, const KeyComparator &comparator) -> ValueType;
+  void PopulateNewRoot(const ValueType &old_value, const KeyType &new_key, const ValueType &new_value);
+  auto ValueIndex(const ValueType &value) const -> int;
+  auto InsertNodeAfter(const ValueType &old_value, const KeyType &new_key, const ValueType &new_value) -> int;
+  void MoveHalfTo(BPlusTreeInternalPage *recipient, BufferPoolManager *buffer_pool_manager);
   void CopyNFrom(MappingType *items, int size, BufferPoolManager *buffer_pool_manager);
+  void Remove(int index);
+  void MoveFirstToEndOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
+                        BufferPoolManager *buffer_pool_manager);
+  void CopyLastFrom(const MappingType &pair, BufferPoolManager *buffer_pool_manager);
+  void MoveLastToFrontOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
+                         BufferPoolManager *buffer_pool_manager);
+  void CopyFirstFrom(const MappingType &pair, BufferPoolManager *buffer_pool_manager);
+  void MoveAllTo(BPlusTreeInternalPage *recipient, const KeyType &middle_key, BufferPoolManager *buffer_pool_manager);
 
  private:
   // Flexible array member for page data.

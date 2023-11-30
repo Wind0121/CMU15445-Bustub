@@ -76,9 +76,9 @@ class BPlusTree {
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
 
  private:
-  auto FindLeaf(const KeyType &key)-> Page*;
+  auto FindLeaf(const KeyType &key) -> Page *;
 
-  void StartNewTree(const KeyType &key,const ValueType &value);
+  void StartNewTree(const KeyType &key, const ValueType &value);
 
   auto InsertIntoLeaf(const KeyType &key, const ValueType &value) -> bool;
 
@@ -88,6 +88,19 @@ class BPlusTree {
   void InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node);
 
   void UpdateRootPageId(int insert_record = 0);
+
+  template <typename N>
+  auto CoalesceOrRedistribute(N *node, Transaction *transaction = nullptr) -> bool;
+
+  template <typename N>
+  auto Coalesce(N *neighbor_node, N *node, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *parent, int index,
+                Transaction *transaction = nullptr) -> bool;
+
+  template <typename N>
+  void Redistribute(N *neighbor_node, N *node, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *parent,
+                    int index, bool from_prev);
+
+  auto AdjustRoot(BPlusTreePage *node) -> bool;
 
   /* Debug Routines for FREE!! */
   void ToGraph(BPlusTreePage *page, BufferPoolManager *bpm, std::ofstream &out) const;
@@ -101,7 +114,6 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
-
 };
 
 }  // namespace bustub
