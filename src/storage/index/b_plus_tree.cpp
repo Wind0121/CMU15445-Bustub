@@ -98,7 +98,7 @@ auto BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value) 
   // 满了就要进行分裂操作
   auto sibling_leaf_node = Split(node);
   sibling_leaf_node->SetNextPageId(node->GetNextPageId());
-  node->SetNextPageId(sibling_leaf_node->GetNextPageId());
+  node->SetNextPageId(sibling_leaf_node->GetPageId());
 
   KeyType new_key = sibling_leaf_node->KeyAt(0);
   InsertIntoParent(node, new_key, sibling_leaf_node);
