@@ -60,6 +60,8 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   void MoveLastToFrontOf(BPlusTreeLeafPage *recipient);
   void CopyFirstFrom(const MappingType &item);
   void MoveAllTo(BPlusTreeLeafPage *recipient);
+  auto KeyIndex(const KeyType &key, const KeyComparator &keyComparator) const -> int;
+  auto GetItem(int index) -> const MappingType &;
 
  private:
   page_id_t next_page_id_;

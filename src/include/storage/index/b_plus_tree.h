@@ -76,7 +76,7 @@ class BPlusTree {
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
 
  private:
-  auto FindLeaf(const KeyType &key) -> Page *;
+  auto FindLeaf(const KeyType &key,bool leftMost = false,bool rightMost = false) -> Page *;
 
   void StartNewTree(const KeyType &key, const ValueType &value);
 

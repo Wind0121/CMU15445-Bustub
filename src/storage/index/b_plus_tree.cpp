@@ -358,7 +358,13 @@ auto BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) -> bool {
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(); }
+auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
+  if(IsEmpty()){
+    return INDEXITERATOR_TYPE(nullptr, nullptr,0);
+  }
+  auto left_most_page = FindLeaf(KeyType(),true);
+  return INDEXITERATOR_TYPE(buffer_pool_manager_,left_most_page,0);
+}
 
 /*
  * Input parameter is low key, find the leaf page that contains the input key
@@ -366,7 +372,15 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE()
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(); }
+auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
+  if(IsEmpty()){
+    return INDEXITERATOR_TYPE(nullptr, nullptr,0);
+  }
+  auto page = FindLeaf(key);
+  auto* node = reinterpret_cast<LeafPage *>(page->GetData());
+  int idx = node->KeyIndex(key,comparator_);
+  return INDEXITERATOR_TYPE(buffer_pool_manager_,page,idx);
+}
 
 /*
  * Input parameter is void, construct an index iterator representing the end
@@ -374,7 +388,14 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE { return IN
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(); }
+auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
+  if(IsEmpty()){
+    return INDEXITERATOR_TYPE(nullptr, nullptr,0);
+  }
+  auto right_most_page = FindLeaf(KeyType(),false,true);
+  auto* right_most_node = reinterpret_cast<LeafPage *>(right_most_page->GetData());
+  return INDEXITERATOR_TYPE(buffer_pool_manager_,right_most_page,right_most_node->GetSize());
+}
 
 /**
  * @return Page id of the root of this tree
@@ -386,13 +407,21 @@ auto BPLUSTREE_TYPE::GetRootPageId() -> page_id_t { return root_page_id_; }
  * HELPER FUNCTIONS
  *****************************************************************************/
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::FindLeaf(const KeyType &key) -> Page * {
+auto BPLUSTREE_TYPE::FindLeaf(const KeyType &key,bool leftMost,bool rightMost) -> Page * {
   auto page = buffer_pool_manager_->FetchPage(root_page_id_);
   auto *node = reinterpret_cast<BPlusTreePage *>(page->GetData());
 
   while (!node->IsLeafPage()) {
     auto *i_node = reinterpret_cast<InternalPage *>(node);
-    auto child_page_id = i_node->LookUp(key, comparator_);
+    page_id_t child_page_id = -1;
+
+    if(leftMost){
+      child_page_id = i_node->ValueAt(0);
+    }else if(rightMost){
+      child_page_id = i_node->ValueAt(i_node->GetSize() - 1);
+    }else {
+      child_page_id = i_node->LookUp(key, comparator_);
+    }
 
     buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
 
