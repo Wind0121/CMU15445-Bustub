@@ -14,12 +14,12 @@
 #include <string>
 #include <vector>
 
+#include "common/rwlatch.h"
 #include "concurrency/transaction.h"
 #include "storage/index/index_iterator.h"
 #include "storage/page/b_plus_tree_internal_page.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
 #include "storage/page/page.h"
-#include "common/rwlatch.h"
 
 namespace bustub {
 
@@ -78,13 +78,12 @@ class BPlusTree {
   // read data from file and remove one by one
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
 
-  auto FindLeaf(const KeyType &key, Operation operation, Transaction *transaction = nullptr,
-                bool leftMost = false,bool rightMost = false) -> Page *;
+  auto FindLeaf(const KeyType &key, Operation operation, Transaction *transaction = nullptr, bool leftMost = false,
+                bool rightMost = false) -> Page *;
 
   void ReleaseLatchFromQueue(Transaction *transaction);
 
  private:
-
   void StartNewTree(const KeyType &key, const ValueType &value);
 
   auto InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction = nullptr) -> bool;
