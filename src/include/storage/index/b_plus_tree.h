@@ -19,8 +19,11 @@
 #include "storage/page/b_plus_tree_internal_page.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
 #include "storage/page/page.h"
+#include "common/rwlatch.h"
 
 namespace bustub {
+
+enum class Operation { SEARCH, INSERT, DELETE };
 
 #define BPLUSTREE_TYPE BPlusTree<KeyType, ValueType, KeyComparator>
 
@@ -75,17 +78,22 @@ class BPlusTree {
   // read data from file and remove one by one
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
 
+  auto FindLeaf(const KeyType &key, Operation operation, Transaction *transaction = nullptr,
+                bool leftMost = false,bool rightMost = false) -> Page *;
+
+  void ReleaseLatchFromQueue(Transaction *transaction);
+
  private:
-  auto FindLeaf(const KeyType &key,bool leftMost = false,bool rightMost = false) -> Page *;
 
   void StartNewTree(const KeyType &key, const ValueType &value);
 
-  auto InsertIntoLeaf(const KeyType &key, const ValueType &value) -> bool;
+  auto InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction = nullptr) -> bool;
 
   template <typename N>
   auto Split(N *node) -> N *;
 
-  void InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node);
+  void InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node,
+                        Transaction *transaction = nullptr);
 
   void UpdateRootPageId(int insert_record = 0);
 
@@ -114,6 +122,7 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+  ReaderWriterLatch root_page_id_latch_;
 };
 
 }  // namespace bustub
