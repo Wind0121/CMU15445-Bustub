@@ -13,9 +13,9 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
-#include <unordered_map>
 
 #include "common/util/hash_util.h"
 #include "execution/executor_context.h"
@@ -59,7 +59,7 @@ class HashJoinExecutor : public AbstractExecutor {
   const HashJoinPlanNode *plan_;
   std::unique_ptr<AbstractExecutor> left_child_;
   std::unique_ptr<AbstractExecutor> right_child_;
-  std::unordered_map<hash_t ,std::vector<Tuple>> hash_join_table_;
+  std::unordered_map<hash_t, std::vector<Tuple>> hash_join_table_;
   std::vector<Tuple> output_tuples_;
   std::vector<Tuple>::const_iterator output_tuples_iter_;
 };
