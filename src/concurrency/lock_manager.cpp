@@ -179,7 +179,7 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
   table_lock_map_latch_.unlock();
 
   for(auto lock_request : lock_request_queue->request_queue_){
-    if(lock_request->oid_ == oid){
+    if(lock_request->txn_id_ == txn->GetTransactionId() && lock_request->granted_){
       // 3.将锁从请求队列中移除
       lock_request_queue->request_queue_.remove(lock_request);
       lock_request_queue->cv_.notify_all();
@@ -333,6 +333,7 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
   row_lock_map_latch_.lock();
   if(row_lock_map_.find(rid) == row_lock_map_.end()){
     txn->SetState(TransactionState::ABORTED);
+    row_lock_map_latch_.unlock();
     throw TransactionAbortException(txn->GetTransactionId(),AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
   }
   auto lock_request_queue = row_lock_map_[rid];
@@ -340,7 +341,7 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
   row_lock_map_latch_.unlock();
 
   for(auto lock_request : lock_request_queue->request_queue_){
-    if(lock_request->oid_ == oid && lock_request->rid_ == rid){
+    if(lock_request->txn_id_ == txn->GetTransactionId() && lock_request->granted_){
       lock_request_queue->request_queue_.remove(lock_request);
       lock_request_queue->cv_.notify_all();
 
