@@ -56,7 +56,7 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   lock_request_queue->latch_.lock();
   table_lock_map_latch_.unlock();
   // 3.判断是否为更新
-  for (auto lock_request : lock_request_queue->request_queue_) {
+  for (const auto& lock_request : lock_request_queue->request_queue_) {
     if (lock_request->txn_id_ == txn->GetTransactionId()) {
       std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
       // 如果已经存在相同类型的锁，直接返回true
@@ -101,8 +101,8 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
         throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
       }
       // 删除已有的lock
-      lock_request_queue->request_queue_.remove(lock_request);
       InsertOrDeleteTableLockSet(txn, lock_request, false);
+      lock_request_queue->request_queue_.remove(lock_request);
       // 获取新的lock请求，并放到最高优先级
       auto upgrade_lock_request = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid);
       std::list<std::shared_ptr<LockRequest>>::iterator it;
@@ -178,11 +178,9 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
   lock_request_queue->latch_.lock();
   table_lock_map_latch_.unlock();
 
-  for (auto lock_request : lock_request_queue->request_queue_) {
+  for (const auto& lock_request : lock_request_queue->request_queue_) {
     if (lock_request->txn_id_ == txn->GetTransactionId() && lock_request->granted_) {
       // 3.将锁从请求队列中移除
-      lock_request_queue->request_queue_.remove(lock_request);
-      lock_request_queue->cv_.notify_all();
 
       if ((lock_request->lock_mode_ == LockMode::EXCLUSIVE) ||
           (lock_request->lock_mode_ == LockMode::SHARED &&
@@ -192,8 +190,10 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
         }
       }
 
-      lock_request_queue->latch_.unlock();
+      lock_request_queue->cv_.notify_all();
       InsertOrDeleteTableLockSet(txn, lock_request, false);
+      lock_request_queue->request_queue_.remove(lock_request);
+      lock_request_queue->latch_.unlock();
       return true;
     }
   }
@@ -255,7 +255,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   lock_request_queue->latch_.lock();
   row_lock_map_latch_.unlock();
   // 3.判断是否为更新
-  for (auto lock_request : lock_request_queue->request_queue_) {
+  for (const auto& lock_request : lock_request_queue->request_queue_) {
     if (lock_request->txn_id_ == txn->GetTransactionId()) {
       std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
       if (lock_request->lock_mode_ == lock_mode) {
@@ -276,8 +276,8 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
         throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
       }
       // 删除已有的lock
-      lock_request_queue->request_queue_.remove(lock_request);
       InsertOrDeleteRowLockSet(txn, lock_request, false);
+      lock_request_queue->request_queue_.remove(lock_request);
       // 获取新的lock请求，并放到最高优先级
       auto upgrade_lock_request = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid, rid);
       std::list<std::shared_ptr<LockRequest>>::iterator it;
@@ -341,10 +341,8 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
   lock_request_queue->latch_.lock();
   row_lock_map_latch_.unlock();
 
-  for (auto lock_request : lock_request_queue->request_queue_) {
+  for (const auto& lock_request : lock_request_queue->request_queue_) {
     if (lock_request->txn_id_ == txn->GetTransactionId() && lock_request->granted_) {
-      lock_request_queue->request_queue_.remove(lock_request);
-      lock_request_queue->cv_.notify_all();
 
       if ((lock_request->lock_mode_ == LockMode::EXCLUSIVE) ||
           (lock_request->lock_mode_ == LockMode::SHARED &&
@@ -354,8 +352,10 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
         }
       }
 
-      lock_request_queue->latch_.unlock();
+      lock_request_queue->cv_.notify_all();
       InsertOrDeleteRowLockSet(txn, lock_request, false);
+      lock_request_queue->request_queue_.remove(lock_request);
+      lock_request_queue->latch_.unlock();
       return true;
     }
   }
