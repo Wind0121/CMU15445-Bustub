@@ -36,7 +36,7 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (table_iterator_ == table_info_->table_->End()) {
     if (exec_ctx_->GetTransaction()->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
       try {
-        const auto &s_row_lock_set = exec_ctx_->GetTransaction()->GetSharedRowLockSet()->at(plan_->table_oid_);
+        const auto s_row_lock_set = exec_ctx_->GetTransaction()->GetSharedRowLockSet()->at(plan_->table_oid_);
         for (const auto &lock_rid : s_row_lock_set) {
           bool flag = exec_ctx_->GetLockManager()->UnlockRow(exec_ctx_->GetTransaction(), plan_->table_oid_, lock_rid);
           if (!flag) {
