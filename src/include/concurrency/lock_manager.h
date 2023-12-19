@@ -311,7 +311,6 @@ class LockManager {
 
   auto Dfs(txn_id_t txn_id) -> bool;
 
-
  private:
   /** Fall 2022 */
   /** Structure that holds lock requests for a given table oid */

@@ -19,6 +19,7 @@
 #include "binder/table_ref/bound_base_table_ref.h"
 #include "catalog/catalog.h"
 #include "catalog/schema.h"
+#include "concurrency/lock_manager.h"
 #include "execution/expressions/abstract_expression.h"
 #include "execution/plans/abstract_plan.h"
 

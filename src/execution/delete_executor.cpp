@@ -21,10 +21,21 @@ DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *
     : AbstractExecutor(exec_ctx), plan_(plan) {
   child_executor_ = std::move(child_executor);
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->table_oid_);
-  table_indexes_ = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
 }
 
-void DeleteExecutor::Init() { child_executor_->Init(); }
+void DeleteExecutor::Init() {
+  child_executor_->Init();
+  try {
+    bool flag = exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(),
+                                                       LockManager::LockMode::INTENTION_EXCLUSIVE, plan_->table_oid_);
+    if (!flag) {
+      throw ExecutionException("Lock Table Fail");
+    }
+  } catch (TransactionAbortException &e) {
+    throw ExecutionException("Lock Table Fail");
+  }
+  table_indexes_ = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
+}
 
 auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   if (is_end_) {
@@ -32,6 +43,16 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   }
   int delete_count = 0;
   while (child_executor_->Next(tuple, rid)) {
+    try {
+      bool flag = exec_ctx_->GetLockManager()->LockRow(exec_ctx_->GetTransaction(), LockManager::LockMode::EXCLUSIVE,
+                                                       table_info_->oid_, *rid);
+      if (!flag) {
+        throw ExecutionException("Lock Row Fail");
+      }
+    } catch (TransactionAbortException &e) {
+      throw ExecutionException("Lock Row Fail");
+    }
+
     if (table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction())) {
       for (auto index : table_indexes_) {
         auto key = tuple->KeyFromTuple(table_info_->schema_, index->key_schema_, index->index_->GetKeyAttrs());
