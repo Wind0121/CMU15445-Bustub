@@ -443,6 +443,7 @@ void LockManager::RunCycleDetection() {
 
       for(const auto& it : table_lock_map_){
         std::vector<txn_id_t> granted;
+        it.second->latch_.lock();
         for(const auto& lock_request : it.second->request_queue_){
           if(lock_request->granted_){
             granted.push_back(lock_request->txn_id_);
@@ -453,10 +454,12 @@ void LockManager::RunCycleDetection() {
           }
           map_txn_oid_[lock_request->txn_id_].push_back(lock_request->oid_);
         }
+        it.second->latch_.unlock();
       }
 
       for(const auto& it : row_lock_map_){
         std::vector<txn_id_t> granted;
+        it.second->latch_.lock();
         for(const auto& lock_request : it.second->request_queue_){
           if(lock_request->granted_){
             granted.push_back(lock_request->txn_id_);
@@ -467,6 +470,7 @@ void LockManager::RunCycleDetection() {
           }
           map_txn_rid_[lock_request->txn_id_].push_back(lock_request->rid_);
         }
+        it.second->latch_.unlock();
       }
 
       table_lock_map_latch_.unlock();
