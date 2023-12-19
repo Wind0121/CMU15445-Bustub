@@ -363,14 +363,74 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
   throw TransactionAbortException(txn->GetTransactionId(),AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
 }
 
-void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {}
+void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {
+  txn_node_set_.insert(t1);
+  txn_node_set_.insert(t2);
+  waits_for_[t1].push_back(t2);
+}
 
-void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) {}
+void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) {
+  while(std::find(waits_for_[t1].begin(),waits_for_[t1].end(),t2) != waits_for_[t1].end()){
+    auto it = std::find(waits_for_[t1].begin(),waits_for_[t1].end(),t2);
+    waits_for_[t1].erase(it);
+  }
+}
 
-auto LockManager::HasCycle(txn_id_t *txn_id) -> bool { return false; }
+auto LockManager::DeleteNode(txn_id_t txn_id) -> void{
+  waits_for_.erase(txn_id);
+  txn_node_set_.erase(txn_id);
+
+  for(const auto& txn_node_id : txn_node_set_){
+    RemoveEdge(txn_node_id,txn_id);
+  }
+
+}
+
+auto LockManager::Dfs(txn_id_t txn_id) -> bool{
+  if(safe_txn_set_.find(txn_id) != safe_txn_set_.end()){
+    return false;
+  }
+  active_txn_set_.insert(txn_id);
+  std::sort(waits_for_[txn_id].begin(),waits_for_[txn_id].end());
+  for(const txn_id_t& next_txn_id : waits_for_[txn_id]){
+    if(active_txn_set_.find(next_txn_id) != active_txn_set_.end()){
+      return true;
+    }
+    if(Dfs(next_txn_id)){
+      return true;
+    }
+  }
+
+  active_txn_set_.erase(txn_id);
+  safe_txn_set_.insert(txn_id);
+  return false;
+}
+
+auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
+  active_txn_set_.clear();
+  safe_txn_set_.clear();
+
+  for(const txn_id_t& now_txn_id : txn_node_set_){
+    if(Dfs(now_txn_id)){
+      *txn_id = *active_txn_set_.begin();
+      for(const txn_id_t& active_txn_id : active_txn_set_){
+        *txn_id = std::max(*txn_id,active_txn_id);
+      }
+      return true;
+    }else{
+      active_txn_set_.clear();
+    }
+  }
+  return false;
+}
 
 auto LockManager::GetEdgeList() -> std::vector<std::pair<txn_id_t, txn_id_t>> {
-  std::vector<std::pair<txn_id_t, txn_id_t>> edges(0);
+  std::vector<std::pair<txn_id_t, txn_id_t>> edges;
+  for(const auto& txn_id : txn_node_set_){
+    for(const auto& next_txn_id : waits_for_[txn_id]){
+      edges.emplace_back(txn_id,next_txn_id);
+    }
+  }
   return edges;
 }
 
@@ -378,6 +438,76 @@ void LockManager::RunCycleDetection() {
   while (enable_cycle_detection_) {
     std::this_thread::sleep_for(cycle_detection_interval);
     {  // TODO(students): detect deadlock
+      table_lock_map_latch_.lock();
+      row_lock_map_latch_.lock();
+
+      for(const auto& it : table_lock_map_){
+        std::vector<txn_id_t> granted;
+        for(const auto& lock_request : it.second->request_queue_){
+          if(lock_request->granted_){
+            granted.push_back(lock_request->txn_id_);
+          }else{
+            for(const auto& granted_txn_id : granted){
+              AddEdge(lock_request->txn_id_,granted_txn_id);
+            }
+          }
+          map_txn_oid_[lock_request->txn_id_].push_back(lock_request->oid_);
+        }
+      }
+
+      for(const auto& it : row_lock_map_){
+        std::vector<txn_id_t> granted;
+        for(const auto& lock_request : it.second->request_queue_){
+          if(lock_request->granted_){
+            granted.push_back(lock_request->txn_id_);
+          }else{
+            for(const auto& granted_txn_id : granted ){
+              AddEdge(lock_request->txn_id_,granted_txn_id);
+            }
+          }
+          map_txn_rid_[lock_request->txn_id_].push_back(lock_request->rid_);
+        }
+      }
+
+      table_lock_map_latch_.unlock();
+      row_lock_map_latch_.unlock();
+
+      txn_id_t should_abort_txn_id;
+      while(HasCycle(&should_abort_txn_id)){
+        Transaction* should_abort_txn = TransactionManager::GetTransaction(should_abort_txn_id);
+        should_abort_txn->SetState(TransactionState::ABORTED);
+        DeleteNode(should_abort_txn_id);
+
+        if(map_txn_oid_.find(should_abort_txn_id) != map_txn_oid_.end()){
+          for(const table_oid_t& oid : map_txn_oid_[should_abort_txn_id]){
+            table_lock_map_latch_.lock();
+            auto lock_request_queue = table_lock_map_[oid];
+            lock_request_queue->latch_.lock();
+            table_lock_map_latch_.unlock();
+            lock_request_queue->cv_.notify_all();
+            lock_request_queue->latch_.unlock();
+          }
+        }
+
+        if(map_txn_rid_.find(should_abort_txn_id) != map_txn_rid_.end()){
+          for(const RID& rid : map_txn_rid_[should_abort_txn_id]){
+            row_lock_map_latch_.lock();
+            auto lock_request_queue = row_lock_map_[rid];
+            lock_request_queue->latch_.lock();
+            row_lock_map_latch_.unlock();
+            lock_request_queue->cv_.notify_all();
+            lock_request_queue->latch_.unlock();
+          }
+        }
+      }
+
+      waits_for_.clear();
+      txn_node_set_.clear();
+      active_txn_set_.clear();
+      safe_txn_set_.clear();
+      map_txn_oid_.clear();
+      map_txn_rid_.clear();
+
     }
   }
 }

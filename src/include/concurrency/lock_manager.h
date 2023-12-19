@@ -17,6 +17,7 @@
 #include <list>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -305,7 +306,10 @@ class LockManager {
 
   auto InsertOrDeleteRowLockSet(Transaction *txn, const std::shared_ptr<LockRequest> &lock_request, bool insert)
       -> void;
-  
+
+  auto DeleteNode(txn_id_t txn_id) -> void;
+
+  auto Dfs(txn_id_t txn_id) -> bool;
 
 
  private:
@@ -325,6 +329,13 @@ class LockManager {
   /** Waits-for graph representation. */
   std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
   std::mutex waits_for_latch_;
+
+  std::set<txn_id_t> txn_node_set_;
+  std::unordered_set<txn_id_t> active_txn_set_;
+  std::unordered_set<txn_id_t> safe_txn_set_;
+
+  std::unordered_map<txn_id_t, std::vector<table_oid_t>> map_txn_oid_;
+  std::unordered_map<txn_id_t, std::vector<RID>> map_txn_rid_;
 };
 
 }  // namespace bustub
